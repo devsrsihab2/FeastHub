@@ -1,47 +1,92 @@
-import 'package:first_project/data/dummy_data.dart';
+import 'package:first_project/core/theme/app_text_styles.dart';
 import 'package:first_project/model/category.dart';
-import 'package:first_project/model/meal.dart';
-import 'package:first_project/screens/meals.dart';
+import 'package:first_project/provider/category_provider.dart';
+import 'package:first_project/screens/meals_screen.dart';
 import 'package:first_project/widgets/category_grid_item.dart';
+import 'package:first_project/widgets/shimmer_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class CategoriesScreen extends StatelessWidget {
-  const CategoriesScreen({super.key, required this.availableMeals});
-
-  final List<Meal> availableMeals;
+  const CategoriesScreen({super.key});
 
   void _selectCategory(BuildContext context, Category category) {
-    final filteredmeals = availableMeals
-        .where((meal) => meal.categories.contains(category.id))
-        .toList();
-
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) =>
-            MealsScreen(title: category.title, meals: filteredmeals),
+      PageRouteBuilder(
+        pageBuilder: (ctx, animation, secondary) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          child: MealsScreen(
+            categoryId: category.id,
+            title: category.title,
+          ),
+        ),
+        transitionDuration: const Duration(milliseconds: 350),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return GridView(
-      padding: EdgeInsets.all(10),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 3 / 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      children: [
-        for (final category in availableCategories)
-          CategoryGridItem(
-            category: category,
-            onSelectCategory: () {
-              _selectCategory(context, category);
-            },
+    final categoryProvider = context.watch<CategoryProvider>();
+
+    if (categoryProvider.isLoading) {
+      return const SafeArea(
+        bottom: false,
+        child: CategoryShimmerGrid(),
+      );
+    }
+
+    final categories = categoryProvider.categories;
+
+    return SafeArea(
+      bottom: false,
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Browse Categories', style: AppTextStyles.heading),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${categories.length} cuisines to explore',
+                    style: AppTextStyles.bodySmall,
+                  ),
+                ],
+              ),
+            ),
           ),
-      ],
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid(
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) {
+                  final cat = categories[i];
+                  return CategoryCard(
+                    category: cat,
+                    animationDelay: Duration(milliseconds: i * 45),
+                    onTap: () => _selectCategory(context, cat),
+                  );
+                },
+                childCount: categories.length,
+              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 1.15,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ],
+      ),
     );
   }
 }

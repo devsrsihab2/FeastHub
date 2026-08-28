@@ -1,92 +1,148 @@
-import 'package:first_project/data/dummy_data.dart';
-import 'package:first_project/screens/categories.dart';
+import 'package:first_project/core/theme/app_colors.dart';
+import 'package:first_project/core/theme/app_text_styles.dart';
 import 'package:first_project/screens/favorite_meal.dart';
-import 'package:first_project/screens/filters.dart';
-import 'package:first_project/widgets/main_drawer.dart';
+import 'package:first_project/screens/home_screen.dart';
+import 'package:first_project/screens/orders_screen.dart';
+import 'package:first_project/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 
-const kInitialFilters = {
-  Filter.glutenFree: false,
-  Filter.lactoseFree: false,
-  Filter.vegan: false,
-  Filter.vegetarian: false,
-};
-
 class TabsScreen extends StatefulWidget {
-  const TabsScreen({super.key});
+  const TabsScreen({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<TabsScreen> createState() => _TabsScreenState();
 }
 
 class _TabsScreenState extends State<TabsScreen> {
-  int _selectedPageIndex = 0;
-  Map<Filter, bool> _selectedFilters = kInitialFilters;
-  // slect page
-  void _selectPage(int index) {
-    setState(() {
-      _selectedPageIndex = index;
-    });
+  late int _selectedIndex;
+
+  static const _tabs = [
+    _TabItem(icon: Icons.home_rounded, label: 'Home'),
+    _TabItem(icon: Icons.favorite_rounded, label: 'Favorites'),
+    _TabItem(icon: Icons.receipt_long_rounded, label: 'Orders'),
+    _TabItem(icon: Icons.person_rounded, label: 'Profile'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
   }
 
-  void _setScreen(String identifier) async {
-    Navigator.of(context).pop();
-    if (identifier == 'filters') {
-      final result = await Navigator.of(context).push<Map<Filter, bool>>(
-        MaterialPageRoute(
-          builder: (ctx) => FiltersScreen(currentFilter: _selectedFilters),
-        ),
-      );
-
-      setState(() {
-        _selectedFilters = result ?? kInitialFilters;
-      });
-
-      print('the filter ${result}');
+  void _onTabTapped(int index) {
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final availabeMeal = dummyMeals.where((meal) {
-      if (_selectedFilters[Filter.glutenFree]! && !meal.isGlutenFree) {
-        return false;
-      }
-      if (_selectedFilters[Filter.lactoseFree]! && !meal.isLactoseFree) {
-        return false;
-      }
-      if (_selectedFilters[Filter.vegetarian]! && !meal.isVegetarian) {
-        return false;
-      }
-      if (_selectedFilters[Filter.vegan]! && !meal.isVegan) {
-        return false;
-      }
-
-      return true;
-    }).toList();
-
-    Widget activePage = CategoriesScreen(availableMeals: availabeMeal);
-    var activePageTitle = 'Categories';
-
-    if (_selectedPageIndex == 1) {
-      activePage = const FavoriteScreen();
-      activePageTitle = 'Your Favorites';
-    }
-
     return Scaffold(
-      appBar: AppBar(title: Text(activePageTitle)),
-      body: activePage,
-      drawer: MainDrawer(onSelectedScreen: _setScreen),
-      bottomNavigationBar: BottomNavigationBar(
-        onTap: _selectPage,
-        currentIndex: _selectedPageIndex,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.set_meal),
-            label: "Categories",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: "Favorites"),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: const [
+          HomeScreen(),
+          FavoritesScreen(),
+          OrdersScreen(),
+          ProfileScreen(),
         ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.divider)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: _tabs.asMap().entries.map((entry) {
+                final i = entry.key;
+                final tab = entry.value;
+                final isSelected = i == _selectedIndex;
+
+                return _NavItem(
+                  icon: Icon(
+                    tab.icon,
+                    size: 24,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                  label: tab.label,
+                  isSelected: isSelected,
+                  onTap: () => _onTabTapped(i),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabItem {
+  const _TabItem({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primaryContainer
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: icon,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: AppTextStyles.label.copyWith(
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
